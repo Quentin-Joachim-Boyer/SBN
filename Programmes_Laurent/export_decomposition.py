@@ -1,0 +1,4 @@
+import clingcon
+
+
+def solve
