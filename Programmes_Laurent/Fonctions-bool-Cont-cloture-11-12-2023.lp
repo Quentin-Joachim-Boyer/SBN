@@ -32,7 +32,7 @@ node(1..D) :- d(D).
 
 % bf_node(N) : the integer representation of the Boolean function with D variables x_1, ..., x_D attached to the node N ( 1 <= N, N <= D). 
 %for D = 2, we get the decomposition (truth table) of a function with two variables x_1, x_2  :
-% bf_node(N) = bit(N, (2**2)-4) * 2**0  + bit(N, (2**2)-3) * 2**1 + bit(N, (2**2)-2) * 2**2 + bit(N, (2**2)-1) * 2**3. 
+% bf_node(N) = bit(N, (2**2)-4) * 2**0  + bit(N, (2**2)-3) * 2**1 + bit(N, (2*2)-2) * 2**2 + bit(N, (2**2)-1) * 2**3. 
 % The number of possible entries is 2**(D=2) = 4, ranging from 0..(2**D)-1 = 0..3
 % The number of functions is 2**2**(D=2) = 2**4 = 16, ranging from 0..2**(2**D)-1 = 0..15
 % This means that the application of this function to the entry <0,1> = 2 gives bit(N, 2).
