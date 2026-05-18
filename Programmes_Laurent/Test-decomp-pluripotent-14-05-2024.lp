@@ -1,13 +1,13 @@
 %%%%%%%%%%%%%%%
 % 1-03
-% d(2).
 % d(1).
- d(3).
+% d(2).
+d(3).
 % d(4).
 
 %%%%%%%%%%%
 % :- not dec_cont1(2,nil,c(0,c(0,c(1,nil)))).
- % :- not dec_cont1(2,nil,c(0,c(0,c(4,nil)))).% insatisf.
+% :- not dec_cont1(2,nil,c(0,c(0,c(4,nil)))).% insatisf.
  
 % :- not dec_cont1(3,nil,c(0,c(2,c(0, c(0,nil))))).
 
@@ -40,7 +40,7 @@
 % 2 surfaces et 4 segments. (22-11-2024) Insatisfiable 71 s.
 % :- not dec_cont1(4,nil,c(0,c(0,c(2, c(4, c(0,nil)))))).
   
-% 4 surfaces OK
+% 4 surfaces OK (18-05-2026) Insatisfiable 72 s. 
 % :- not dec_cont1(4,nil,c(0,c(0,c(4, c(0, c(0,nil)))))).
  
  %%%%%%%%%%%%%%%
