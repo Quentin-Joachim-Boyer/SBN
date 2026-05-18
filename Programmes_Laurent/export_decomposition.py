@@ -3,6 +3,7 @@ import csv
 import re
 import numpy as np
 import itertools
+from functools import reduce
 
 
 LP_FILES = [
@@ -92,6 +93,13 @@ def complete_decomp_vect_generator(d):
     else :
         return [[i] + list((2-i)*np.array(v)) for i,v in itertools.product(range(3),complete_decomp_vect_generator(d-1))]
 
+
+def rec_decomp_binary_vector_sum(d,s):
+    """"""
+    if d == 1 :
+        return [[s]]
+    else :
+        return reduce(lambda l1,l2:l1+l2,([[i] + v for v in rec_decomp_binary_vector_sum(d-1,(s-i) // 2)] for i in range(s+1) if (s-i) % 2 == 0))
 
 
 if __name__ == "__main__":
