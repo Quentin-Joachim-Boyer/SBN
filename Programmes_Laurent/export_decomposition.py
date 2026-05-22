@@ -51,7 +51,7 @@ def parse_weight(line):
 def solve_and_export(lp_files, decomp_vector, max_answer_n = 0,output_csv="output.csv"):
     d = len(decomp_vector)
     constant = [f"-c v{d-1-i}={decomp_vector[i]}" for i in range(d)]
-    parallel = [] #["--parallel","2"]
+    parallel = ["--parallel","2"]
     time_limit = ["--time-limit=3600"]
     result = subprocess.run(
         ["clingcon", f"{max_answer_n}","--project",f"-c d={d}"] + parallel + time_limit + constant + lp_files,

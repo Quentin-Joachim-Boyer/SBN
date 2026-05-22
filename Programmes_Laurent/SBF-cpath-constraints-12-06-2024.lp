@@ -7,7 +7,7 @@
 edge(N1,N) :- node(N), node(N1).
 
 % weight(N1,N) : weight of the edge N1 -> N. Domain TO BE REVISED.
-&dom{-(2*D)..2*D} = weight(N1,N) :- d(D), edge(N1, N).
+&dom{(-D)..(D)} = weight(N,N) :- d(D), edge(N, N).
 
 &sum{weight(N1,N)} = weight_cp(N1, N, nil) :- edge(N1, N).
 

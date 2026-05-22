@@ -6,48 +6,37 @@ import sys
 
 
 LP_FILES = [
-    "decomp-pluripotent-14-05-2023.lp",
-    "Fonctions-bool-Cont-cloture-11-12-2023.lp",
-    "SBF-cpath-constraints-12-06-2024.lp",
-    "setup_decomp.lp",
+    "SBN_construction.lp"
 ]
 
-N = int(sys.argv[2])
+PREDICATES = ["transition_function"]
 
-MAX_DIMENSION = int(sys.argv[1])
+MAX_ANSWER_N = 0
 
-ASP_PREDICATES = ["transition_function"]
-
-def parse_asp(line,names):
+def parse_line(line,names,csp=False):
     """Parse a line of asp predicates named name"""
+    # Only works for fixed arity for now (two in this case).
     row = {}
     tokens = line.split()
     for token in tokens:
-        match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)\(([0-9]*)\,([0-9]*)\)', token)
-        if names == match.group(1):
-            arg = match.group(2)
-            value = match.group(3)
-            row[f"f_{arg}"] = value
+        if csp :
+            match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)\(([0-9]*)\,([0-9]*)\)?=(-?\d+)', token)
+            if match.group(1) in names:
+                arg = match.group(2),match.group(3)
+                value = match.group(4)
+                row[match.group(1) + f"_{arg[0]},{arg[1]}"] = value
+        else:
+            match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)\(([0-9]*)\,([0-9]*)\)', token)
+            if match.group(1) in names:
+                arg = match.group(2)
+                value = match.group(3)
+                row[match.group(1) + f"f_{arg}"] = value
     return row
 
-def parse_csp(line,names):
-    """Parse a line of CP asp predicates named name """
-    row = {}
-    tokens = line.split()
 
-    for token in tokens:
-        match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)\(([0-9]*)\,([0-9]*)\)?=(-?\d+)', token)
-
-        if name == match.group(1):
-            arg = match.group(2),match.group(3)
-            value = match.group(4)
-            row[f"w_{arg[0]},{arg[1]}"] = value
-  
-    return row
-
-def solve_and_export(lp_files, asp_names, csp_names, time_limit = [],parallel = [], constant = [], max_answer_n = 0,output_csv="output.csv"):
+def solve_and_export(lp_files, names, project=[], time_limit = [],parallel = [], constant = [], max_answer_n = 0,output_csv="output.csv"):
     result = subprocess.run(
-        ["clingcon", f"{max_answer_n}","--project",f"-c d={d}"] + parallel + time_limit + constant + lp_files,
+        ["clingcon", f"{max_answer_n}"] + project + parallel + time_limit + constant + lp_files,
         capture_output=True, text=True
     )
 
@@ -64,11 +53,11 @@ def solve_and_export(lp_files, asp_names, csp_names, time_limit = [],parallel = 
             answer_number += 1
             line = next(result_iterator, None)
             if line is not None :    
-                asp_row = parse_asp(line,asp_names)             
+                asp_row = parse_line(line,names)             
             line = next(result_iterator, None)
             line = next(result_iterator, None)
             if line is not None:
-                csp_row = parse_csp(line,csp_names)
+                csp_row = parse_line(line,names,csp=True)
                 row = asp_row | csp_row
                 all_rows.append(row)
 
@@ -99,4 +88,4 @@ def rec_decomp_base2_vector_sum(d,s):
 
 
 if __name__ == "__main__":
-    solve_and_export(LP_FILES, PREDICATES, output_csv=f"output.csv")
+    solve_and_export(LP_FILES, PREDICATES, max_answer_n = MAX_ANSWER_N, project = ["--project"], output_csv=f"transition_function_output.csv")
