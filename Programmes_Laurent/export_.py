@@ -1,8 +1,6 @@
 import subprocess
 import csv
 import re
-import numpy as np
-import itertools
 from functools import reduce
 import sys
 
@@ -18,41 +16,36 @@ N = int(sys.argv[2])
 
 MAX_DIMENSION = int(sys.argv[1])
 
-# PREDICATES = ["weight","funct"]
+ASP_PREDICATES = ["transition_function"]
 
-def parse_func(line):
-    """Parse a line of predicates 'func' """
-    func_row = {}
+def parse_asp(line,names):
+    """Parse a line of asp predicates named name"""
+    row = {}
     tokens = line.split()
     for token in tokens:
-        asp_match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)\(([0-9]*)\,([0-9]*)\)', token)
+        match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)\(([0-9]*)\,([0-9]*)\)', token)
+        if names == match.group(1):
+            arg = match.group(2)
+            value = match.group(3)
+            row[f"f_{arg}"] = value
+    return row
 
-        name = asp_match.group(1)
-        arg = asp_match.group(2)
-        value = asp_match.group(3)
-        func_row[f"f_{arg}"] = value
-    return func_row
-
-def parse_weight(line):
-    """Parse a line of CP predicates 'weight' """
-    weight_row = {}
+def parse_csp(line,names):
+    """Parse a line of CP asp predicates named name """
+    row = {}
     tokens = line.split()
 
     for token in tokens:
-        csp_match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)\(([0-9]*)\,([0-9]*)\)?=(-?\d+)', token)
+        match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)\(([0-9]*)\,([0-9]*)\)?=(-?\d+)', token)
 
-        name = csp_match.group(1)
-        arg = csp_match.group(2),csp_match.group(3)
-        value = csp_match.group(4)
-        weight_row[f"w_{arg[0]},{arg[1]}"] = value
+        if name == match.group(1):
+            arg = match.group(2),match.group(3)
+            value = match.group(4)
+            row[f"w_{arg[0]},{arg[1]}"] = value
   
-    return weight_row
+    return row
 
-def solve_and_export(lp_files, decomp_vector, max_answer_n = 0,output_csv="output.csv"):
-    d = len(decomp_vector)
-    constant = [f"-c v{d-1-i}={decomp_vector[i]}" for i in range(d)]
-    parallel = [] #["--parallel","2"]
-    time_limit = ["--time-limit=3600"]
+def solve_and_export(lp_files, asp_names, csp_names, time_limit = [],parallel = [], constant = [], max_answer_n = 0,output_csv="output.csv"):
     result = subprocess.run(
         ["clingcon", f"{max_answer_n}","--project",f"-c d={d}"] + parallel + time_limit + constant + lp_files,
         capture_output=True, text=True
@@ -71,18 +64,18 @@ def solve_and_export(lp_files, decomp_vector, max_answer_n = 0,output_csv="outpu
             answer_number += 1
             line = next(result_iterator, None)
             if line is not None :    
-                func_row = parse_func(line)             
+                asp_row = parse_asp(line,asp_names)             
             line = next(result_iterator, None)
             line = next(result_iterator, None)
             if line is not None:
-                weight_row = parse_weight(line)
-                row = func_row | weight_row
+                csp_row = parse_csp(line,csp_names)
+                row = asp_row | csp_row
                 all_rows.append(row)
 
 
 
     if not all_rows:
-        print(f"NO ANSWER FOUND FOR {d}d <0,"+",".join(map(str, decomp_vector))+">.")
+        print(f"NO ANSWER FOUND FOR ")
         return
 
 
@@ -106,10 +99,4 @@ def rec_decomp_base2_vector_sum(d,s):
 
 
 if __name__ == "__main__":
-    for d in range(MAX_DIMENSION,MAX_DIMENSION+1):
-        complete_decomp_vects = rec_decomp_base2_vector_sum(d,2**d)
-        # print(complete_decomp_vects)
-        for v in complete_decomp_vects:
-            # print(v)
-            v_name = ",".join(map(str, v))
-            solve_and_export(LP_FILES, v,N, output_csv=f"inhibiteur_{d}d_<0," + v_name + ">_output.csv")
+    solve_and_export(LP_FILES, PREDICATES, output_csv=f"output.csv")

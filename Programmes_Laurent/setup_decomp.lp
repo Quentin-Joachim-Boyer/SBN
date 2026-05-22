@@ -12,6 +12,7 @@ d(d).
 :- not dec_cont1(d,nil,c(v2,c(v1,c(v0,nil)))),d(2).
 :- not dec_cont1(d,nil,c(v3,c(v2,c(v1,c(v0,nil))))),d(3).
 :- not dec_cont1(d,nil,c(v4,c(v3,c(v2,c(v1,c(v0,nil)))))),d(4).
+% :- not funct(4, 65280),d(4). % 4eme fonction fixée 
 :- not dec_cont1(d,nil,c(v5,c(v4,c(v3,c(v2,c(v1,c(v0,nil))))))),d(5).
 
 #show funct/2.
