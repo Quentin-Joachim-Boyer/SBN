@@ -1,0 +1,1374 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>SBN Visualizer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=DM+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --panel: #161b27;
+    --border: #252d3d;
+    --accent: #4f8ef7;
+    --accent2: #a78bfa;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --pos: #34d399;
+    --neg: #f87171;
+    --zero: #94a3b8;
+
+    /* Sub-dynamics palette by dimension */
+    --dim1: #f59e0b;
+    --dim2: #06b6d4;
+    --dim3: #8b5cf6;
+    --dim4: #ec4899;
+    --attractor-glow: 0 0 12px 3px rgba(255,255,100,0.5);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: 0.02em;
+  }
+
+  .upload-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 500;
+  }
+  .upload-btn:hover { opacity: 0.85; }
+
+  #file-input { display: none; }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+    font-size: 13px;
+  }
+
+  select {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    cursor: pointer;
+  }
+  select:focus { outline: none; border-color: var(--accent); }
+
+  .nav-btn {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .sol-counter {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    min-width: 80px;
+  }
+
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .pane:last-child { border-right: none; }
+
+  .pane-header {
+    padding: 8px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pane-body {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  svg.sbn-canvas, canvas.hc-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* Bottom info bars under each pane */
+  .pane {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .pane-info {
+    border-top: 1px solid var(--border);
+    background: var(--panel);
+    padding: 8px 14px;
+    flex-shrink: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 20px;
+    align-items: flex-start;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+
+  .info-block {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .info-block h3 {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 2px;
+  }
+
+  .fn-row {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text);
+    padding: 1px 0;
+    display: flex;
+    gap: 6px;
+  }
+  .fn-label { color: var(--muted); }
+
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .legend-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .legend-line {
+    width: 20px; height: 3px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .decomp-block {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    margin-bottom: 2px;
+  }
+  .decomp-swatch {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .empty-state {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 24px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .drop-zone:hover { border-color: var(--accent); color: var(--text); }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(79,142,247,0.15);
+    color: var(--accent);
+    border: 1px solid rgba(79,142,247,0.3);
+  }
+
+  .decomp-nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .decomp-nav button {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    width: 22px; height: 22px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .decomp-nav button:hover { border-color: var(--accent); }
+  .decomp-nav span {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--muted);
+  }
+
+  .angle-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 5px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    flex-wrap: wrap;
+  }
+  .angle-controls label {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .angle-controls input[type=range] {
+    width: 90px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .angle-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text);
+    min-width: 36px;
+  }
+  .preset-btn {
+    background: var(--bg);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: inherit;
+  }
+  .preset-btn:hover { border-color: var(--accent); color: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>SBN Visualizer</h1>
+  <button class="upload-btn" onclick="document.getElementById('file-input').click()">+ Load CSV</button>
+  <input type="file" id="file-input" accept=".csv" multiple>
+
+  <div class="controls">
+    <select id="file-select" style="max-width:280px"></select>
+    <button class="nav-btn" onclick="navigate(-1)">‹</button>
+    <span class="sol-counter" id="sol-counter">— / —</span>
+    <button class="nav-btn" onclick="navigate(1)">›</button>
+  </div>
+</header>
+
+<div class="main">
+  <!-- SBN pane -->
+  <div class="pane">
+    <div class="pane-header">
+      <span>Signed Boolean Network</span>
+      <span class="tag" id="dim-tag">—</span>
+    </div>
+    <div class="pane-body" id="sbn-pane">
+      <div class="empty-state" id="sbn-empty">
+        <div class="drop-zone" onclick="document.getElementById('file-input').click()">
+          <div style="font-size:28px;margin-bottom:8px">📂</div>
+          <div>Load a CSV file to begin</div>
+          <div style="font-size:12px;margin-top:4px;color:var(--muted)">*_output.csv format</div>
+        </div>
+      </div>
+      <svg class="sbn-canvas" id="sbn-svg" style="display:none"></svg>
+    </div>
+    <!-- SBN info bar -->
+    <div class="pane-info" id="sbn-info" style="display:none">
+      <div class="info-block">
+        <h3>Functions</h3>
+        <div id="fn-list"></div>
+      </div>
+      <div class="info-block">
+        <h3>Legend</h3>
+        <div class="legend-row"><div class="legend-line" style="background:var(--pos)"></div>Positive weight</div>
+        <div class="legend-row"><div class="legend-line" style="background:var(--neg)"></div>Negative weight</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hypercube pane -->
+  <div class="pane">
+    <div class="pane-header">
+      <span>Transition Graph</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--muted)">drag to rotate · scroll to zoom</span>
+    </div>
+    <div class="angle-controls" id="angle-controls" style="display:none">
+      <label>θ<sub>x</sub></label>
+      <input type="range" id="slider-rotX" min="-180" max="180" step="1" value="23" oninput="onAngleSlider()">
+      <span class="angle-val" id="label-rotX">23°</span>
+      <label style="margin-left:4px">θ<sub>y</sub></label>
+      <input type="range" id="slider-rotY" min="-180" max="180" step="1" value="29" oninput="onAngleSlider()">
+      <span class="angle-val" id="label-rotY">29°</span>
+      <div style="margin-left:auto;display:flex;gap:4px">
+        <button class="preset-btn" onclick="applyPreset('Front')">Front</button>
+        <button class="preset-btn" onclick="applyPreset('Top')">Top</button>
+        <button class="preset-btn" onclick="applyPreset('Iso')">Iso</button>
+        <button class="preset-btn" onclick="applyPreset('Side')">Side</button>
+      </div>
+    </div>
+    <div class="pane-body" id="hc-pane">
+      <canvas class="hc-canvas" id="hc-canvas" style="display:none"></canvas>
+    </div>
+    <!-- Transition info bar -->
+    <div class="pane-info" id="hc-info" style="display:none">
+      <div class="info-block">
+        <h3>Decomposition</h3>
+        <div id="decomp-info"></div>
+      </div>
+      <div class="info-block">
+        <h3>Legend</h3>
+        <div id="decomp-legend"></div>
+        <div class="legend-row" style="margin-top:4px">
+          <div class="legend-dot" style="background:#fff;box-shadow:var(--attractor-glow)"></div>
+          Attractor
+        </div>
+        <div class="legend-row">
+          <div class="legend-dot" style="background:#555"></div>
+          Transient
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let files = [];       // {name, rows, dim, decomp_vec}
+let curFile = 0;
+let curSol  = 0;
+
+
+// ─── Colors ──────────────────────────────────────────────────────────────────
+const DIM_COLORS = {
+  1: '#f59e0b',
+  2: '#06b6d4',
+  3: '#8b5cf6',
+  4: '#ec4899',
+};
+
+function dimColor(d) { return DIM_COLORS[d] || '#94a3b8'; }
+
+const GROUP_PALETTE = [
+  '#06b6d4', '#8b5cf6', '#f59e0b', '#ec4899',
+  '#34d399', '#f97316', '#a78bfa', '#22d3ee',
+];
+// groupKey is a string like "0,1" — convert binary tuple to index
+function groupColor(groupKey) {
+  const idx = parseInt(groupKey.replace(/,/g, ''), 2);
+  return GROUP_PALETTE[idx % GROUP_PALETTE.length];
+}
+
+function weightColor(w) {
+  if (w === 0) return '#64748b';
+  const abs = Math.abs(w), max = 4;
+  const t = Math.min(1, abs / max);
+  if (w > 0) {
+    const g = Math.round(80 + 175 * t);
+    return `rgb(20,${g},80)`;
+  } else {
+    const r = Math.round(80 + 175 * t);
+    return `rgb(${r},20,20)`;
+  }
+}
+
+// ─── CSV Parsing ─────────────────────────────────────────────────────────────
+function parseCSVLine(line) {
+  // Proper CSV parser: handles "w_1,1" quoted fields
+  const fields = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { fields.push(cur.trim()); cur = ''; }
+    else { cur += c; }
+  }
+  fields.push(cur.trim());
+  return fields;
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  const header = parseCSVLine(lines[0]);
+  return lines.slice(1).filter(l => l.trim()).map(line => {
+    const vals = parseCSVLine(line);
+    const obj = {};
+    header.forEach((h, i) => obj[h] = vals[i] ?? '');
+    return obj;
+  });
+}
+
+function parseName(name) {
+  // Robust: handles "4d__0_1_2_0_0__output" or "4d_0_1_2_0_0_output"
+  // Strategy: find "Nd" then extract the sequence of digits separated by underscores
+  const mDim = name.match(/^(\d+)d/);
+  if (!mDim) return { dim: null, vec: [] };
+  const dim = parseInt(mDim[1]);
+  // Remove leading "Nd_*" and trailing "_*output*", keep the middle number sequence
+  // e.g. "4d__0_1_2_0_0__output" or "4d_0_1_2_0_0_output"
+  const rest = name.slice(mDim[0].length).replace(/^_+/, ''); // strip leading underscores
+  const mVec = rest.match(/^([0-9][0-9_]*)/);
+  if (!mVec) return { dim, vec: [] };
+  const vec = mVec[1].split('_').filter(s => s !== '').map(Number);
+  return { dim, vec };
+}
+
+function getDim(row) {
+  return Object.keys(row).filter(k => k.startsWith('f_')).length;
+}
+
+// ─── File Loading ─────────────────────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  const fileList = Array.from(e.target.files);
+  let loaded = 0;
+  fileList.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const rows = parseCSV(ev.target.result);
+      if (!rows.length) return;
+      const { dim, vec } = parseName(file.name.replace('.csv',''));
+      const d = dim || getDim(rows[0]);
+      files.push({ name: file.name, rows, dim: d, decomp_vec: vec });
+      files.sort((a,b) => a.name.localeCompare(b.name));
+      loaded++;
+      if (loaded === fileList.length) {
+        populateFileSelect();
+        curFile = files.length - loaded;
+        curSol  = 0;
+        document.getElementById('file-select').selectedIndex = curFile;
+        render();
+      }
+    };
+    reader.readAsText(file);
+  });
+});
+
+function populateFileSelect() {
+  const sel = document.getElementById('file-select');
+  sel.innerHTML = '';
+  files.forEach((f, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = f.name;
+    sel.appendChild(opt);
+  });
+}
+
+document.getElementById('file-select').addEventListener('change', e => {
+  curFile = parseInt(e.target.value);
+  curSol  = 0;
+  render();
+});
+
+function navigate(delta) {
+  if (!files.length) return;
+  const f = files[curFile];
+  curSol = Math.max(0, Math.min(f.rows.length - 1, curSol + delta));
+  render();
+}
+
+// Scroll on SBN pane navigates solutions
+document.getElementById('sbn-pane').addEventListener('wheel', e => {
+  e.preventDefault();
+  navigate(e.deltaY > 0 ? 1 : -1);
+}, { passive: false });
+
+// ─── Main Render ─────────────────────────────────────────────────────────────
+function render() {
+  if (!files.length) return;
+  const f  = files[curFile];
+  const row = f.rows[curSol];
+  const n   = f.dim;
+
+  document.getElementById('sol-counter').textContent = `${curSol+1} / ${f.rows.length}`;
+  document.getElementById('dim-tag').textContent = `d = ${n}`;
+  document.getElementById('sbn-empty').style.display = 'none';
+  document.getElementById('sbn-svg').style.display = 'block';
+  document.getElementById('hc-canvas').style.display = 'block';
+  document.getElementById('sbn-info').style.display = 'flex';
+  document.getElementById('hc-info').style.display = 'flex';
+
+  renderFunctions(row, n);
+
+  const weights = extractWeights(row, n);
+  renderSBN(weights, n, row);
+
+  const transitions = computeTransitions(weights, n);
+  const decomp = findDecomposition(transitions, n);
+  renderDecompInfo(decomp, n);
+  renderHypercube(transitions, n, decomp);
+
+}
+
+// ─── Weights ─────────────────────────────────────────────────────────────────
+function extractWeights(row, n) {
+  const W = {};
+  for (let i = 1; i <= n; i++)
+    for (let j = 1; j <= n; j++)
+      W[`${i},${j}`] = parseInt(row[`w_${i},${j}`] ?? 0);
+  return W;
+}
+
+// ─── Transition ──────────────────────────────────────────────────────────────
+// Convention: w_i,j = weight of arc FROM node i TO node j
+// Node j activates iff sum_i W[i,j] * x_i > 0
+function computeTransitions(W, n) {
+  const T = {};
+  for (let s = 0; s < (1<<n); s++) {
+    const bits = Array.from({length:n}, (_,i) => (s>>i)&1);
+    const nb = Array.from({length:n}, (_,j) => {
+      const sum = bits.reduce((a, xi, i) => a + (W[`${i+1},${j+1}`]||0) * xi, 0);
+      return sum > 0 ? 1 : 0;
+    });
+    T[s] = nb.reduce((a,b,i) => a|(b<<i), 0);
+  }
+  return T;
+}
+
+// ─── Basin Detection ─────────────────────────────────────────────────────────
+function computeBasins(T, n) {
+  const N = 1<<n;
+  const inCycle = new Array(N).fill(false);
+  const cycleId = new Array(N).fill(-1);
+  let cid = 0;
+  for (let start = 0; start < N; start++) {
+    const path = [], seen = {};
+    let cur = start;
+    while (seen[cur] === undefined) { seen[cur] = path.length; path.push(cur); cur = T[cur]; }
+    if (cycleId[cur] === -1) {
+      const cs = seen[cur];
+      for (let k = cs; k < path.length; k++) {
+        inCycle[path[k]] = true;
+        cycleId[path[k]] = cid;
+      }
+      cid++;
+    }
+  }
+  const basin = new Array(N).fill(-1);
+  for (let start = 0; start < N; start++) {
+    let cur = start;
+    const path = [];
+    while (!inCycle[cur]) { path.push(cur); cur = T[cur]; }
+    const b = cycleId[cur];
+    for (const x of path) basin[x] = b;
+    basin[cur] = b;
+  }
+  return { basin, inCycle, numBasins: cid };
+}
+
+// ─── Invariant Face Detection ────────────────────────────────────────────────
+function findInvariantFaces(T, n) {
+  const N = 1<<n;
+  const faces = [];
+  for (let mask = 1; mask < N; mask++) {
+    const fixed = popcount(mask);
+    const dim   = n - fixed;
+    if (dim < 1) continue;
+    for (let val = 0; val < N; val++) {
+      if (val & ~mask) continue;
+      const states = [];
+      for (let s = 0; s < N; s++) if ((s & mask) === val) states.push(s);
+      if (states.every(s => (T[s] & mask) === val)) {
+        faces.push({ dim, mask, val, states });
+      }
+    }
+  }
+  return faces;
+}
+
+function popcount(x) { let c=0; while(x){c+=x&1;x>>=1;} return c; }
+
+// ─── Decomposition via invariant bits ────────────────────────────────────────
+// Bit k is invariant if T[s] always has the same bit k as s.
+// Invariant bits (high→low) define the sub-hypercube partition.
+function findDecomposition(T, n) {
+  const N = 1 << n;
+  const invBits = [];
+  for (let bit = n - 1; bit >= 0; bit--) {
+    let inv = true;
+    for (let s = 0; s < N; s++) {
+      if (((T[s] >> bit) & 1) !== ((s >> bit) & 1)) { inv = false; break; }
+    }
+    if (inv) invBits.push(bit);
+  }
+  if (!invBits.length) return null;
+
+  const groups = new Map();
+  for (let s = 0; s < N; s++) {
+    const key = invBits.map(b => (s >> b) & 1).join(',');
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(s);
+  }
+
+  const dim = n - invBits.length;
+  const result = [];
+  for (const [key, states] of groups) {
+    result.push({ groupKey: key, states, dim });
+  }
+  return result;
+}
+
+// ─── Decomp Info ─────────────────────────────────────────────────────────────
+
+
+function renderDecompInfo(decomp, n) {
+  const el     = document.getElementById('decomp-info');
+  const legend = document.getElementById('decomp-legend');
+  const nav    = document.getElementById('decomp-nav');
+  if (nav) nav.style.display = 'none';
+
+  if (!decomp) {
+    el.innerHTML = '<div style="font-size:11px;color:var(--muted)">No decomposition</div>';
+    legend.innerHTML = '';
+    return;
+  }
+
+  const dim = decomp[0].dim;
+  const count = decomp.length;
+  const dimLabel = ['—','segment','square','cube','tesseract'][dim] || ('d='+dim);
+
+  // Decomp info: one row per group
+  let h = '<div style="font-size:12px;margin-bottom:6px">' + count + '× ' + dimLabel + ' (d=' + dim + ')</div>';
+  for (const group of decomp) {
+    const col = groupColor(group.groupKey);
+    h += '<div class="decomp-block"><div class="decomp-swatch" style="background:' + col + '"></div>'
+       + '<span style="font-size:11px;font-family:monospace">[' + group.states.join(',') + ']</span></div>';
+  }
+  el.innerHTML = h;
+
+  // Legend: one entry per unique color (= one per group, but deduplicated)
+  let lhtml = '';
+  const seenCols = new Set();
+  for (const group of decomp) {
+    const col = groupColor(group.groupKey);
+    if (!seenCols.has(col)) {
+      seenCols.add(col);
+      lhtml += '<div class="legend-row"><div class="legend-dot" style="background:' + col + ';border-radius:2px"></div>'
+             + dimLabel + ' (d=' + dim + ')</div>';
+    }
+  }
+  legend.innerHTML = lhtml;
+}
+
+// ─── Functions Display ────────────────────────────────────────────────────────
+function renderFunctions(row, n) {
+  let html = '';
+  for (let i = 1; i <= n; i++) {
+    const v = parseInt(row[`f_${i}`]);
+    // Convert to binary string of length 2^n
+    const bits = v.toString(2).padStart(1<<n,'0');
+    html += `<div class="fn-row"><span class="fn-label">f<sub>${i}</sub></span><span>${bits}</span></div>`;
+  }
+  document.getElementById('fn-list').innerHTML = html;
+}
+
+// ─── SBN Drawing ─────────────────────────────────────────────────────────────
+function renderSBN(W, n, row) {
+  const svg = document.getElementById('sbn-svg');
+  const rect = svg.parentElement.getBoundingClientRect();
+  const W_ = rect.width || 600, H = rect.height || 500;
+  svg.setAttribute('viewBox', `0 0 ${W_} ${H}`);
+  svg.innerHTML = '';
+
+  const cx = W_/2, cy = H/2;
+  const R  = Math.min(W_, H) * 0.34;
+  const r  = Math.min(40, R * 0.22);
+
+  // Node positions
+  const nodes = Array.from({length:n}, (_,i) => {
+    const a = (i/n)*2*Math.PI - Math.PI/2;
+    return { id:i+1, x: cx + R*Math.cos(a), y: cy + R*Math.sin(a), angle:a };
+  });
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const defs = svgEl('defs');
+  svg.appendChild(defs);
+
+  // Collect arrowhead colors
+  const colorSet = new Set();
+  for (let i=1;i<=n;i++) for (let j=1;j<=n;j++) {
+    const w = W[`${i},${j}`];
+    if (w !== 0) colorSet.add(weightColor(w));
+  }
+  colorSet.forEach(col => {
+    const mk = svgEl('marker');
+    const cid = col.replace(/[^a-z0-9]/gi,'_');
+    mk.setAttribute('id', `arr_${cid}`);
+    mk.setAttribute('markerWidth','5'); mk.setAttribute('markerHeight','5');
+    mk.setAttribute('refX','4'); mk.setAttribute('refY','2.5');
+    mk.setAttribute('orient','auto');
+    const poly = svgEl('polygon');
+    poly.setAttribute('points','0 0, 5 2.5, 0 5');
+    poly.setAttribute('fill',col);
+    mk.appendChild(poly); defs.appendChild(mk);
+  });
+
+  // Group edges: non-loop, check for bidirectional
+  const edgeExists = {};
+  for (let i=1;i<=n;i++) for (let j=1;j<=n;j++) {
+    if (W[`${i},${j}`] !== 0) edgeExists[`${i}-${j}`] = true;
+  }
+
+  // Draw edges (non-loop first, then self-loops)
+  const labelPositions = [];
+
+  // Pass 1: non-loop edges
+  for (let i=1;i<=n;i++) {
+    for (let j=1;j<=n;j++) {
+      if (i===j) continue;
+      const w = W[`${i},${j}`];
+      if (w===0) continue;
+      const src = nodes[i-1], tgt = nodes[j-1];
+      const col = weightColor(w);
+      const cid = col.replace(/[^a-z0-9]/gi,'_');
+
+      const hasBi = edgeExists[`${j}-${i}`];
+      const dx = tgt.x - src.x, dy = tgt.y - src.y;
+      const dist = Math.sqrt(dx*dx+dy*dy);
+      const ux = dx/dist, uy = dy/dist;
+      const px = -uy, py = ux; // perpendicular
+
+      const offset = hasBi ? 22 : 0;
+      const x1 = src.x + ux*r + px*offset;
+      const y1 = src.y + uy*r + py*offset;
+      const x2 = tgt.x - ux*(r+6) + px*offset;
+      const y2 = tgt.y - uy*(r+6) + py*offset;
+
+      const mx = (x1+x2)/2 + px*offset*0.5;
+      const my = (y1+y2)/2 + py*offset*0.5;
+
+      const path = svgEl('path');
+      const ctrl = hasBi ? `Q ${mx} ${my}` : ``;
+      if (hasBi) {
+        path.setAttribute('d', `M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`);
+      } else {
+        path.setAttribute('d', `M ${x1} ${y1} L ${x2} ${y2}`);
+      }
+      path.setAttribute('fill','none');
+      path.setAttribute('stroke',col);
+      path.setAttribute('stroke-width','2');
+      path.setAttribute('marker-end',`url(#arr_${cid})`);
+      svg.appendChild(path);
+
+      // Label: perpendicular to edge at midpoint, clamped inside SVG
+      const labelOff = hasBi ? 16 : 13;
+      const lx0 = mx + px * labelOff;
+      const ly0 = my + py * labelOff;
+      const margin = 18;
+      const lx = Math.max(margin, Math.min(W_ - margin, lx0));
+      const ly = Math.max(margin, Math.min(H  - margin, ly0));
+      drawLabel(svg, lx, ly, (w>0?'+':'')+w, col, labelPositions);
+    }
+  }
+
+  // Pass 2: self-loops (radial)
+  for (let i=1;i<=n;i++) {
+    const w = W[`${i},${i}`];
+    if (w===0) continue;
+    const nd = nodes[i-1];
+    const col = weightColor(w);
+    const cid = col.replace(/[^a-z0-9]/gi,'_');
+    const angle = nd.angle;
+
+    // Loop: compact teardrop anchored radially on the node rim
+    const loopR = r * 0.75;
+    const apexDist = r + loopR * 2.0;  // apex of loop from node centre
+    const apexX = nd.x + Math.cos(angle) * apexDist;
+    const apexY = nd.y + Math.sin(angle) * apexDist;
+
+    const da = 0.40;
+    const sx = nd.x + r * Math.cos(angle - da);
+    const sy = nd.y + r * Math.sin(angle - da);
+    const ex = nd.x + r * Math.cos(angle + da);
+    const ey = nd.y + r * Math.sin(angle + da);
+
+    const c1x = nd.x + (r + loopR*1.4)*Math.cos(angle - da*1.1);
+    const c1y = nd.y + (r + loopR*1.4)*Math.sin(angle - da*1.1);
+    const c2x = nd.x + (r + loopR*1.4)*Math.cos(angle + da*1.1);
+    const c2y = nd.y + (r + loopR*1.4)*Math.sin(angle + da*1.1);
+
+    const path = svgEl('path');
+    path.setAttribute('d', `M ${sx} ${sy} C ${c1x} ${c1y} ${c2x} ${c2y} ${ex} ${ey}`);
+    path.setAttribute('fill','none');
+    path.setAttribute('stroke',col);
+    path.setAttribute('stroke-width','2');
+    path.setAttribute('stroke-linecap','round');
+    path.setAttribute('marker-end',`url(#arr_${cid})`);
+    svg.appendChild(path);
+
+    // Label: at apex, nudged perpendicular to radial direction, clamped inside SVG
+    // Perpendicular to the radial direction
+    const perpX = -Math.sin(angle);
+    const perpY =  Math.cos(angle);
+    // Place label slightly to the side of the apex so it doesn't sit on the curve
+    const lx0 = apexX + perpX * 14;
+    const ly0 = apexY + perpY * 14;
+    // Clamp inside SVG bounds with margin
+    const margin = 18;
+    const lx = Math.max(margin, Math.min(W_ - margin, lx0));
+    const ly = Math.max(margin, Math.min(H  - margin, ly0));
+    drawLabel(svg, lx, ly, (w>0?'+':'')+w, col, labelPositions);
+  }
+
+  // Draw nodes on top
+  for (const nd of nodes) {
+    const g = svgEl('g');
+
+    const circle = svgEl('circle');
+    circle.setAttribute('cx', nd.x); circle.setAttribute('cy', nd.y);
+    circle.setAttribute('r', r);
+    circle.setAttribute('fill','#1e2535');
+    circle.setAttribute('stroke','#4f8ef7');
+    circle.setAttribute('stroke-width','1.5');
+    g.appendChild(circle);
+
+    const label = svgEl('text');
+    label.setAttribute('x', nd.x); label.setAttribute('y', nd.y);
+    label.setAttribute('text-anchor','middle');
+    label.setAttribute('dominant-baseline','middle');
+    label.setAttribute('font-size', Math.round(r*0.72));
+    label.setAttribute('font-family','JetBrains Mono, monospace');
+    label.setAttribute('font-weight','600');
+    label.setAttribute('fill','#e2e8f0');
+    label.textContent = nd.id;
+    g.appendChild(label);
+
+    // f_i binary label removed (clutters node)
+
+    svg.appendChild(g);
+  }
+}
+
+function getDimRow(row) {
+  return Object.keys(row).filter(k=>k.startsWith('f_')).length;
+}
+
+function drawLabel(svg, x, y, text, col, positions) {
+  // Try 8 directions to find a spot that doesn't overlap existing labels
+  const step = 16;
+  const dirs = [[0,0],[1,0],[-1,0],[0,1],[0,-1],[1,-1],[-1,1],[1,1],[-1,-1]];
+  let ox=x, oy=y;
+  for (const [dx,dy] of dirs) {
+    const cx = x + dx*step, cy = y + dy*step;
+    if (!positions.some(p => Math.hypot(p.x-cx,p.y-cy)<15)) {
+      ox=cx; oy=cy; break;
+    }
+  }
+  positions.push({x:ox,y:oy});
+
+  const bg = svgEl('rect');
+  bg.setAttribute('x',ox-13); bg.setAttribute('y',oy-9);
+  bg.setAttribute('width','26'); bg.setAttribute('height','17');
+  bg.setAttribute('rx','4'); bg.setAttribute('fill','rgba(15,17,23,0.88)');
+  svg.appendChild(bg);
+
+  const t = svgEl('text');
+  t.setAttribute('x',ox); t.setAttribute('y',oy);
+  t.setAttribute('text-anchor','middle'); t.setAttribute('dominant-baseline','middle');
+  t.setAttribute('font-size','11');
+  t.setAttribute('font-family','JetBrains Mono, monospace');
+  t.setAttribute('font-weight','600');
+  t.setAttribute('fill',col);
+  t.textContent = text;
+  svg.appendChild(t);
+}
+
+function svgEl(tag) { return document.createElementNS('http://www.w3.org/2000/svg', tag); }
+
+// ─── Hypercube 3D Renderer ────────────────────────────────────────────────────
+let hcState = {
+  rotX: 0.4, rotY: 0.5,
+  dragging: false, lastX:0, lastY:0,
+  zoom: 1,
+  transitions: null,
+  n: 0,
+  decomp: null,
+  animFrame: null
+};
+
+(function setupHC() {
+  const canvas = document.getElementById('hc-canvas');
+  canvas.addEventListener('mousedown', e => {
+    hcState.dragging = true;
+    hcState.lastX = e.clientX;
+    hcState.lastY = e.clientY;
+  });
+  window.addEventListener('mouseup', () => hcState.dragging = false);
+  window.addEventListener('mousemove', e => {
+    if (!hcState.dragging) return;
+    hcState.rotY += (e.clientX - hcState.lastX) * 0.01;
+    hcState.rotX += (e.clientY - hcState.lastY) * 0.01;
+    hcState.lastX = e.clientX;
+    hcState.lastY = e.clientY;
+    syncSlidersFromState();
+    drawHC();
+  });
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    hcState.zoom *= e.deltaY < 0 ? 1.1 : 0.9;
+    hcState.zoom = Math.max(0.3, Math.min(3, hcState.zoom));
+    drawHC();
+  }, {passive:false});
+
+  let lastTouchDist = null;
+  canvas.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) {
+      hcState.dragging = true;
+      hcState.lastX = e.touches[0].clientX;
+      hcState.lastY = e.touches[0].clientY;
+    }
+  });
+  canvas.addEventListener('touchend', () => { hcState.dragging = false; lastTouchDist = null; });
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (e.touches.length === 1 && hcState.dragging) {
+      hcState.rotY += (e.touches[0].clientX - hcState.lastX) * 0.012;
+      hcState.rotX += (e.touches[0].clientY - hcState.lastY) * 0.012;
+      hcState.lastX = e.touches[0].clientX;
+      hcState.lastY = e.touches[0].clientY;
+      syncSlidersFromState();
+      drawHC();
+    }
+  }, {passive:false});
+})();
+
+// Keep angle sliders in sync when user drags
+function syncSlidersFromState() {
+  const sx = document.getElementById('slider-rotX');
+  const sy = document.getElementById('slider-rotY');
+  if (sx) sx.value = Math.round(hcState.rotX * 180 / Math.PI);
+  if (sy) sy.value = Math.round(hcState.rotY * 180 / Math.PI);
+  updateAngleLabels();
+}
+
+function updateAngleLabels() {
+  const lx = document.getElementById('label-rotX');
+  const ly = document.getElementById('label-rotY');
+  if (lx) lx.textContent = Math.round(hcState.rotX * 180 / Math.PI) + '°';
+  if (ly) ly.textContent = Math.round(hcState.rotY * 180 / Math.PI) + '°';
+}
+
+function onAngleSlider() {
+  const sx = document.getElementById('slider-rotX');
+  const sy = document.getElementById('slider-rotY');
+  hcState.rotX = parseInt(sx.value) * Math.PI / 180;
+  hcState.rotY = parseInt(sy.value) * Math.PI / 180;
+  updateAngleLabels();
+  drawHC();
+}
+
+// Preset views
+const PRESETS = {
+  'Front':  { rotX: 0,    rotY: 0 },
+  'Top':    { rotX: -Math.PI/2, rotY: 0 },
+  'Iso':    { rotX: 0.4,  rotY: 0.5 },
+  'Side':   { rotX: 0,    rotY: Math.PI/2 },
+};
+function applyPreset(name) {
+  const p = PRESETS[name];
+  if (!p) return;
+  hcState.rotX = p.rotX;
+  hcState.rotY = p.rotY;
+  syncSlidersFromState();
+  drawHC();
+}
+
+
+function hypercubePositions(n) {
+  // Return 3D positions for 2^n vertices
+  // n=1: segment on x-axis
+  // n=2: square in xy
+  // n=3: cube in xyz
+  // n=4: projected tesseract (inner cube + outer cube connected)
+  const N = 1<<n;
+  const positions = [];
+  if (n <= 3) {
+    for (let s = 0; s < N; s++) {
+      const x = (s>>0)&1, y = (s>>1)&1, z = (s>>2)&1;
+      positions.push([x*2-1, y*2-1, z*2-1]);
+    }
+  } else if (n === 4) {
+    // Tesseract: 4th bit selects inner (scale 0.5) vs outer (scale 1.0) cube
+    for (let s = 0; s < N; s++) {
+      const x = (s>>0)&1, y = (s>>1)&1, z = (s>>2)&1, w = (s>>3)&1;
+      const scale = w ? 1.0 : 0.5;
+      positions.push([
+        (x*2-1)*scale,
+        (y*2-1)*scale,
+        (z*2-1)*scale
+      ]);
+    }
+  } else {
+    // Generic: project onto 3D using first 3 bits + scale by rest
+    for (let s = 0; s < N; s++) {
+      const x = (s>>0)&1, y = (s>>1)&1, z = (s>>2)&1;
+      const extra = s >> 3;
+      const scale = 1 - extra * 0.15;
+      positions.push([(x*2-1)*scale, (y*2-1)*scale, (z*2-1)*scale]);
+    }
+  }
+  return positions;
+}
+
+function hypercubeEdges(n) {
+  const N = 1<<n;
+  const edges = [];
+  for (let s = 0; s < N; s++)
+    for (let b = 0; b < n; b++)
+      if (!((s>>b)&1)) edges.push([s, s|(1<<b)]);
+  return edges;
+}
+
+function rotate3D(p, rx, ry) {
+  let [x,y,z] = p;
+  // Rotate around X
+  let y2 = y*Math.cos(rx) - z*Math.sin(rx);
+  let z2 = y*Math.sin(rx) + z*Math.cos(rx);
+  y=y2; z=z2;
+  // Rotate around Y
+  let x2 = x*Math.cos(ry) + z*Math.sin(ry);
+  let z3 = -x*Math.sin(ry) + z*Math.cos(ry);
+  return [x2, y, z3];
+}
+
+function project(p, fov, cx, cy, scale) {
+  const [x,y,z] = p;
+  const d = fov / (fov + z*0.4);
+  return [cx + x*scale*d, cy - y*scale*d, z];
+}
+
+function renderHypercube(T, n, decomp) {
+  hcState.transitions = T;
+  hcState.n = n;
+  hcState.decomp = decomp;
+  const ac = document.getElementById('angle-controls');
+  if (ac) ac.style.display = 'flex';
+  syncSlidersFromState();
+  drawHC();
+}
+
+function getStateColor(state, decomp, inCycle) {
+  if (!decomp) {
+    return inCycle[state] ? '#ffffff' : '#4a5568';
+  }
+  // Find which face this state belongs to
+  for (const group of decomp) {
+    if (group.states.includes(state)) {
+      const col = groupColor(group.groupKey);
+      return inCycle[state] ? col : hexWithAlpha(col, 0.6);
+    }
+  }
+  return inCycle[state] ? '#ffffff' : '#4a5568';
+}
+
+function hexWithAlpha(hex, alpha) {
+  // Return rgba from hex
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function drawHC() {
+  const canvas = document.getElementById('hc-canvas');
+  const T = hcState.transitions;
+  const n = hcState.n;
+  const decomp = hcState.decomp;
+  if (!T || !n) return;
+
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const DPR  = window.devicePixelRatio || 1;
+  canvas.width  = rect.width  * DPR;
+  canvas.height = rect.height * DPR;
+  canvas.style.width  = rect.width  + 'px';
+  canvas.style.height = rect.height + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+  const W = rect.width, H = rect.height;
+  ctx.clearRect(0,0,W,H);
+
+  const cx = W/2, cy = H/2;
+  const scale = Math.min(W,H) * 0.30 * hcState.zoom;
+  const fov   = 5;
+  const {rotX, rotY} = hcState;
+
+  const positions = hypercubePositions(n);
+  const { basin, inCycle } = computeBasins(T, n);
+
+  // Project all vertices
+  const proj = positions.map(p => {
+    const r = rotate3D(p, rotX, rotY);
+    return project(r, fov, cx, cy, scale);
+  });
+
+  // Sort by depth
+  const byDepth = proj.map((_,i)=>i).sort((a,b) => proj[a][2]-proj[b][2]);
+
+  // Draw hypercube skeleton edges (faint)
+  const hcEdges = hypercubeEdges(n);
+  ctx.save();
+  ctx.strokeStyle = 'rgba(100,116,139,0.25)';
+  ctx.lineWidth = 1;
+  for (const [a,b] of hcEdges) {
+    ctx.beginPath();
+    ctx.moveTo(proj[a][0], proj[a][1]);
+    ctx.lineTo(proj[b][0], proj[b][1]);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Draw decomp sub-faces outlines
+  if (decomp) {
+    for (const group of decomp) {
+      const col = groupColor(group.groupKey);
+      drawFaceOutline(ctx, group, proj, n, col);
+    }
+  }
+
+  // Node radius — needed for arrow rim offsets and self-loops
+  const nr = Math.max(7, Math.min(14, scale * 0.13));
+
+  // Draw transition arrows: start on source rim, end on target rim, with arrowhead
+  const N = 1<<n;
+  ctx.save();
+  ctx.lineWidth = 1.8;
+  for (let s = 0; s < N; s++) {
+    const t = T[s];
+    if (s === t) continue;
+    const [sx, sy] = proj[s];
+    const [tx, ty] = proj[t];
+    const dx = tx-sx, dy = ty-sy;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+    if (dist < 1) continue;
+
+    let col = '#64748b';
+    if (decomp) {
+      const group = decomp.find(g => g.states.includes(s));
+      if (group) col = groupColor(group.groupKey);
+    }
+    ctx.strokeStyle = col + 'bb';
+    ctx.fillStyle   = col + 'bb';
+
+    const ux = dx/dist, uy = dy/dist;
+    // Perpendicular for curve offset
+    const nx = -uy, ny = ux;
+    const curve = dist * 0.18;
+
+    // Start on source rim, end on target rim
+    const x1 = sx + ux*nr, y1 = sy + uy*nr;
+    const x2 = tx - ux*nr, y2 = ty - uy*nr;
+
+    // Quadratic control point
+    const qcx = (x1+x2)/2 + nx*curve, qcy = (y1+y2)/2 + ny*curve;
+
+    // Arrow tip: slightly before target rim so head lands on rim
+    const hs = 5;
+    // Direction at endpoint: tangent of quadratic at t=1
+    const endDx = x2 - qcx, endDy = y2 - qcy;
+    const endLen = Math.sqrt(endDx*endDx + endDy*endDy);
+    const ang = Math.atan2(endDy, endDx);
+
+    // Draw curve stopping just before arrowhead base
+    const tipX = x2 - (hs*0.8)*endDx/endLen;
+    const tipY = y2 - (hs*0.8)*endDy/endLen;
+
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.quadraticCurveTo(qcx, qcy, tipX, tipY);
+    ctx.stroke();
+
+    // Arrowhead triangle pointing to x2,y2
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - hs*Math.cos(ang-0.38), y2 - hs*Math.sin(ang-0.38));
+    ctx.lineTo(x2 - hs*Math.cos(ang+0.38), y2 - hs*Math.sin(ang+0.38));
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Draw nodes (back-to-front)
+  for (const s of byDepth) {
+    const [px_, py_, pz_] = proj[s];
+    const stateColor = getStateColor(s, decomp, inCycle);
+    const isAttractor = inCycle[s];
+
+    ctx.save();
+    if (isAttractor) {
+      ctx.shadowColor = stateColor;
+      ctx.shadowBlur  = 10;
+    }
+    ctx.beginPath();
+    ctx.arc(px_, py_, nr, 0, Math.PI*2);
+    ctx.fillStyle = isAttractor ? stateColor : '#1e2535';
+    ctx.fill();
+    ctx.strokeStyle = stateColor;
+    ctx.lineWidth = isAttractor ? 2.5 : 1.5;
+    ctx.stroke();
+    ctx.restore();
+
+    // Self-loop: small teardrop loop in the radial direction from node centre
+    if (T[s] === s) {
+      ctx.save();
+      ctx.strokeStyle = stateColor + 'cc';
+      ctx.fillStyle   = stateColor + 'cc';
+      ctx.lineWidth = 1.8;
+      // Radial angle: from centre of canvas toward node
+      const radAng = Math.atan2(py_ - cy, px_ - cx);
+      const loopDist = nr * 1.6;
+      const lsx = px_ + Math.cos(radAng - 0.35) * nr;
+      const lsy = py_ + Math.sin(radAng - 0.35) * nr;
+      const lex = px_ + Math.cos(radAng + 0.35) * nr;
+      const ley = py_ + Math.sin(radAng + 0.35) * nr;
+      const lc1x = px_ + Math.cos(radAng - 0.38) * (nr + loopDist);
+      const lc1y = py_ + Math.sin(radAng - 0.38) * (nr + loopDist);
+      const lc2x = px_ + Math.cos(radAng + 0.38) * (nr + loopDist);
+      const lc2y = py_ + Math.sin(radAng + 0.38) * (nr + loopDist);
+      ctx.beginPath();
+      ctx.moveTo(lsx, lsy);
+      ctx.bezierCurveTo(lc1x, lc1y, lc2x, lc2y, lex, ley);
+      ctx.stroke();
+      // Arrowhead at lex,ley
+      const aAng = Math.atan2(ley - lc2y, lex - lc2x);
+      const hs = 4.5;
+      ctx.beginPath();
+      ctx.moveTo(lex, ley);
+      ctx.lineTo(lex - hs*Math.cos(aAng-0.38), ley - hs*Math.sin(aAng-0.38));
+      ctx.lineTo(lex - hs*Math.cos(aAng+0.38), ley - hs*Math.sin(aAng+0.38));
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // State label
+    ctx.save();
+    ctx.font = `${Math.max(8, nr*0.72)}px 'JetBrains Mono', monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = isAttractor ? '#0f1117' : '#94a3b8';
+    ctx.fillText(s.toString(2).padStart(n,'0'), px_, py_);
+    ctx.restore();
+  }
+}
+
+function drawFaceOutline(ctx, face, proj, n, col) {
+  // For d=2 faces (squares): draw a quad outline
+  // For d=3 faces (cubes): draw the 12 edges of the sub-cube
+  // For d=1: draw the edge
+  const states = face.states;
+  const dim = face.dim;
+
+  ctx.save();
+  ctx.strokeStyle = col + '55';
+  ctx.fillStyle   = col + '10';
+  ctx.lineWidth   = dim === 3 ? 2 : 1.5;
+  ctx.setLineDash([4,4]);
+
+  // Draw all hypercube edges within this face
+  for (let i = 0; i < states.length; i++) {
+    for (let j = i+1; j < states.length; j++) {
+      const a = states[i], b = states[j];
+      // Are they adjacent (differ in exactly 1 bit)?
+      const diff = a ^ b;
+      if (diff && (diff & (diff-1)) === 0) {
+        ctx.beginPath();
+        ctx.moveTo(proj[a][0], proj[a][1]);
+        ctx.lineTo(proj[b][0], proj[b][1]);
+        ctx.stroke();
+      }
+    }
+  }
+  ctx.restore();
+}
+
+// ─── Resize handling ──────────────────────────────────────────────────────────
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (files.length) render();
+  }, 100);
+});
+</script>
+</body>
+</html>
