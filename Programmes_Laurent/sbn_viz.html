@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -116,14 +115,56 @@
     overflow: hidden;
   }
 
-  .pane {
-    flex: 1;
+  /* Left column: SBN (top) + Legend (bottom) */
+  .left-col {
+    width: 30%;
+    min-width: 260px;
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
     border-right: 1px solid var(--border);
     overflow: hidden;
   }
-  .pane:last-child { border-right: none; }
+
+  /* SBN pane: fixed ~40% of left column height */
+  .sbn-pane-wrap {
+    flex: 0 0 40%;
+    display: flex;
+    flex-direction: column;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  /* Legend pane: takes remaining height */
+  .legend-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    background: var(--panel);
+  }
+
+  .legend-pane-section {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .legend-pane-section h3 {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  /* Right pane: transition graph, large */
+  .pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
 
   .pane-header {
     padding: 8px 16px;
@@ -185,6 +226,8 @@
     margin-bottom: 2px;
   }
 
+
+
   .fn-row {
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
@@ -226,6 +269,27 @@
     border-radius: 2px;
     flex-shrink: 0;
   }
+
+  /* Drag resizers */
+  .resizer-col {
+    width: 5px;
+    flex-shrink: 0;
+    background: var(--border);
+    cursor: col-resize;
+    transition: background 0.15s;
+    z-index: 10;
+  }
+  .resizer-col:hover, .resizer-col.dragging { background: var(--accent); }
+
+  .resizer-row {
+    height: 5px;
+    flex-shrink: 0;
+    background: var(--border);
+    cursor: row-resize;
+    transition: background 0.15s;
+    z-index: 10;
+  }
+  .resizer-row:hover, .resizer-row.dragging { background: var(--accent); }
 
   .empty-state {
     position: absolute;
@@ -323,7 +387,7 @@
 <body>
 
 <header>
-  <h1>SBN Visualizer</h1>
+  <h1>SBN Visualizer</h1><span style="font-size:10px;color:var(--muted);font-family:monospace">v8</span>
   <button class="upload-btn" onclick="document.getElementById('file-input').click()">+ Load CSV</button>
   <input type="file" id="file-input" accept=".csv" multiple>
 
@@ -336,37 +400,69 @@
 </header>
 
 <div class="main">
-  <!-- SBN pane -->
-  <div class="pane">
-    <div class="pane-header">
-      <span>Signed Boolean Network</span>
-      <span class="tag" id="dim-tag">—</span>
-    </div>
-    <div class="pane-body" id="sbn-pane">
-      <div class="empty-state" id="sbn-empty">
-        <div class="drop-zone" onclick="document.getElementById('file-input').click()">
-          <div style="font-size:28px;margin-bottom:8px">📂</div>
-          <div>Load a CSV file to begin</div>
-          <div style="font-size:12px;margin-top:4px;color:var(--muted)">*_output.csv format</div>
-        </div>
+
+  <!-- Left column: SBN (top ~40%) + Legend (bottom ~60%) -->
+  <div class="left-col">
+
+    <!-- SBN -->
+    <div class="sbn-pane-wrap">
+      <div class="pane-header">
+        <span>SBN</span>
+        <span class="tag" id="dim-tag">—</span>
       </div>
-      <svg class="sbn-canvas" id="sbn-svg" style="display:none"></svg>
+      <div class="pane-body" id="sbn-pane">
+        <div class="empty-state" id="sbn-empty">
+          <div class="drop-zone" onclick="document.getElementById('file-input').click()">
+            <div style="font-size:28px;margin-bottom:8px">📂</div>
+            <div>Load a CSV file to begin</div>
+            <div style="font-size:12px;margin-top:4px;color:var(--muted)">*_output.csv format</div>
+          </div>
+        </div>
+        <svg class="sbn-canvas" id="sbn-svg" style="display:none"></svg>
+      </div>
     </div>
-    <!-- SBN info bar -->
-    <div class="pane-info" id="sbn-info" style="display:none">
-      <div class="info-block">
+
+    <!-- Horizontal resizer between SBN and legend -->
+    <div class="resizer-row" id="resizer-row"></div>
+
+    <!-- Legend -->
+    <div class="legend-pane" id="main-sidebar" style="display:none">
+      <div class="legend-pane-section">
         <h3>Functions</h3>
         <div id="fn-list"></div>
       </div>
-      <div class="info-block">
-        <h3>Legend</h3>
+      <div class="legend-pane-section">
+        <h3>SBN Legend</h3>
         <div class="legend-row"><div class="legend-line" style="background:var(--pos)"></div>Positive weight</div>
         <div class="legend-row"><div class="legend-line" style="background:var(--neg)"></div>Negative weight</div>
       </div>
+      <div class="legend-pane-section" id="hc-info">
+        <h3>Decomposition <span id="decomp-vec-display" style="font-family:monospace;font-weight:normal;color:var(--muted);font-size:9px"></span></h3>
+        <div id="decomp-info"></div>
+      </div>
+      <div class="legend-pane-section" id="hc-legend-block">
+        <h3>Transition Legend</h3>
+        <div id="decomp-legend"></div>
+        <div class="legend-row" style="margin-top:4px">
+          <div class="legend-dot" style="background:#fff;box-shadow:var(--attractor-glow)"></div>
+          Attractor
+        </div>
+        <div class="legend-row">
+          <div class="legend-dot" style="background:#555"></div>
+          Transient
+        </div>
+        <div class="legend-row" style="margin-top:6px;color:var(--muted);font-size:10px">
+          x<sub style="font-size:8px">k</sub> = node k splits
+        </div>
+      </div>
     </div>
+
   </div>
 
-  <!-- Hypercube pane -->
+  <!-- Vertical resizer between left col and right pane -->
+  <div class="resizer-col" id="resizer-col"></div>
+
+  <!-- Right: Transition Graph (large) -->
   <div class="pane">
     <div class="pane-header">
       <span>Transition Graph</span>
@@ -389,26 +485,8 @@
     <div class="pane-body" id="hc-pane">
       <canvas class="hc-canvas" id="hc-canvas" style="display:none"></canvas>
     </div>
-    <!-- Transition info bar -->
-    <div class="pane-info" id="hc-info" style="display:none">
-      <div class="info-block">
-        <h3>Decomposition</h3>
-        <div id="decomp-info"></div>
-      </div>
-      <div class="info-block">
-        <h3>Legend</h3>
-        <div id="decomp-legend"></div>
-        <div class="legend-row" style="margin-top:4px">
-          <div class="legend-dot" style="background:#fff;box-shadow:var(--attractor-glow)"></div>
-          Attractor
-        </div>
-        <div class="legend-row">
-          <div class="legend-dot" style="background:#555"></div>
-          Transient
-        </div>
-      </div>
-    </div>
   </div>
+
 </div>
 
 <script>
@@ -434,7 +512,8 @@ const GROUP_PALETTE = [
 ];
 // groupKey is a string like "0,1" — convert binary tuple to index
 function groupColor(groupKey) {
-  const idx = parseInt(groupKey.replace(/,/g, ''), 2);
+  // groupKey is now a simple numeric string index (0, 1, 2, ...)
+  const idx = parseInt(groupKey);
   return GROUP_PALETTE[idx % GROUP_PALETTE.length];
 }
 
@@ -478,14 +557,20 @@ function parseCSV(text) {
 }
 
 function parseName(name) {
-  // Robust: handles "4d__0_1_2_0_0__output" or "4d_0_1_2_0_0_output"
-  // Strategy: find "Nd" then extract the sequence of digits separated by underscores
+  // Extract dimension: leading number before 'd'
   const mDim = name.match(/^(\d+)d/);
   if (!mDim) return { dim: null, vec: [] };
   const dim = parseInt(mDim[1]);
-  // Remove leading "Nd_*" and trailing "_*output*", keep the middle number sequence
-  // e.g. "4d__0_1_2_0_0__output" or "4d_0_1_2_0_0_output"
-  const rest = name.slice(mDim[0].length).replace(/^_+/, ''); // strip leading underscores
+
+  // Format 1: angle brackets with commas — "4d_<0,0,3,2,0>_output"
+  const mAngle = name.match(/<([0-9,]+)>/);
+  if (mAngle) {
+    const vec = mAngle[1].split(',').map(Number);
+    return { dim, vec };
+  }
+
+  // Format 2: underscores — "4d__0_1_2_0_0__output" or "4d_0_1_2_0_0_output"
+  const rest = name.slice(mDim[0].length).replace(/^_+/, '');
   const mVec = rest.match(/^([0-9][0-9_]*)/);
   if (!mVec) return { dim, vec: [] };
   const vec = mVec[1].split('_').filter(s => s !== '').map(Number);
@@ -506,6 +591,7 @@ document.getElementById('file-input').addEventListener('change', e => {
       const rows = parseCSV(ev.target.result);
       if (!rows.length) return;
       const { dim, vec } = parseName(file.name.replace('.csv',''));
+
       const d = dim || getDim(rows[0]);
       files.push({ name: file.name, rows, dim: d, decomp_vec: vec });
       files.sort((a,b) => a.name.localeCompare(b.name));
@@ -564,8 +650,9 @@ function render() {
   document.getElementById('sbn-empty').style.display = 'none';
   document.getElementById('sbn-svg').style.display = 'block';
   document.getElementById('hc-canvas').style.display = 'block';
-  document.getElementById('sbn-info').style.display = 'flex';
-  document.getElementById('hc-info').style.display = 'flex';
+  document.getElementById('main-sidebar').style.display = 'flex';
+  const vecDisp = document.getElementById('decomp-vec-display');
+  if (vecDisp) vecDisp.textContent = f.decomp_vec && f.decomp_vec.length ? '<'+f.decomp_vec.join(',')+'>' : '(no vec)';
 
   renderFunctions(row, n);
 
@@ -573,7 +660,7 @@ function render() {
   renderSBN(weights, n, row);
 
   const transitions = computeTransitions(weights, n);
-  const decomp = findDecomposition(transitions, n);
+  const decomp = findDecomposition(transitions, n, f.decomp_vec);
   renderDecompInfo(decomp, n);
   renderHypercube(transitions, n, decomp);
 
@@ -657,34 +744,131 @@ function findInvariantFaces(T, n) {
 
 function popcount(x) { let c=0; while(x){c+=x&1;x>>=1;} return c; }
 
-// ─── Decomposition via invariant bits ────────────────────────────────────────
-// Bit k is invariant if T[s] always has the same bit k as s.
-// Invariant bits (high→low) define the sub-hypercube partition.
-function findDecomposition(T, n) {
-  const N = 1 << n;
-  const invBits = [];
+// ─── Decomposition via vec-based binary tree ─────────────────────────────────
+// freeInvBits: find invariant bits among free (non-fixed) bits in a subset of states
+function freeInvBits(states, fixedBits, T, n) {
+  const res = [];
   for (let bit = n - 1; bit >= 0; bit--) {
-    let inv = true;
-    for (let s = 0; s < N; s++) {
-      if (((T[s] >> bit) & 1) !== ((s >> bit) & 1)) { inv = false; break; }
+    if (fixedBits.has(bit)) continue;
+    if (states.every(s => ((T[s] >> bit) & 1) === ((s >> bit) & 1))) res.push(bit);
+  }
+  return res; // high→low
+}
+
+// Build the expected decomposition tree from vec.
+// Returns a tree structure where:
+//   - leaves matching vec targets are "colored" (groupKey set, used for coloring)
+//   - further invariant splits below those leaves are "grey" extensions
+function buildDecompTree(vec, T, n) {
+  // Parse target: target[dim] = count
+  const target = {};
+  for (let i = 0; i < vec.length; i++) {
+    const d = n - i;
+    if (vec[i] > 0 && d >= 1) target[d] = (target[d] || 0) + vec[i];
+  }
+  if (!Object.keys(target).length) return null;
+
+  let nodeId = 0;
+  const nodes = {}; // id -> node
+
+  // colorLeaves: array of colored leaf nodes (used for graph coloring)
+  const colorLeaves = [];
+  let colorIdx = 0;
+
+  function buildExpected(states, dim, fixed, parentId, childIdx) {
+    const id = ++nodeId;
+    const node = { id, states, dim, fixed: new Set(fixed),
+                   children: [], isColorLeaf: false, isGrey: false,
+                   splitBit: null, groupKey: null };
+    nodes[id] = node;
+    if (parentId) nodes[parentId].children.push(id);
+
+    // Is this a target-dimension leaf?
+    if (target[dim] && target[dim] > 0) {
+      target[dim]--;
+      node.isColorLeaf = true;
+      node.groupKey = String(colorIdx++);
+      colorLeaves.push(id);
+      // Extend with grey further splits
+      buildGrey(id);
+      return id;
     }
-    if (inv) invBits.push(bit);
-  }
-  if (!invBits.length) return null;
 
-  const groups = new Map();
-  for (let s = 0; s < N; s++) {
-    const key = invBits.map(b => (s >> b) & 1).join(',');
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(s);
+    // Split on highest free bit
+    const freeBits = [];
+    for (let b = n - 1; b >= 0; b--) if (!fixed.has(b)) freeBits.push(b);
+    if (!freeBits.length) { node.isColorLeaf = true; node.groupKey = String(colorIdx++); colorLeaves.push(id); return id; }
+
+    const sb = freeBits[0];
+    node.splitBit = sb;
+    const newFixed = new Set(fixed); newFixed.add(sb);
+    const h0 = states.filter(s => !((s >> sb) & 1));
+    const h1 = states.filter(s =>  ((s >> sb) & 1));
+    buildExpected(h0, dim - 1, newFixed, id, 0);
+    buildExpected(h1, dim - 1, newFixed, id, 1);
+    return id;
   }
 
-  const dim = n - invBits.length;
-  const result = [];
-  for (const [key, states] of groups) {
-    result.push({ groupKey: key, states, dim });
+  function buildGrey(leafId) {
+    const leaf = nodes[leafId];
+    // Find first free invariant bit in this leaf's states
+    const invs = freeInvBits(leaf.states, leaf.fixed, T, n);
+    if (!invs.length) return;
+    const sb = invs[0];
+    leaf.splitBit = sb;
+    // NOTE: do NOT clear isColorLeaf — the node stays a color boundary for graph coloring
+    // Grey children are added purely for the tree display
+    const newFixed = new Set(leaf.fixed); newFixed.add(sb);
+    const h0 = leaf.states.filter(s => !((s >> sb) & 1));
+    const h1 = leaf.states.filter(s =>  ((s >> sb) & 1));
+
+    function makeGrey(states, dim, fixed, parentId) {
+      const id = ++nodeId;
+      const node = { id, states, dim, fixed: new Set(fixed),
+                     children: [], isColorLeaf: false, isGrey: true,
+                     splitBit: null, groupKey: null };
+      nodes[id] = node;
+      nodes[parentId].children.push(id);
+      const invs2 = freeInvBits(states, fixed, T, n);
+      if (!invs2.length) {
+        node.isColorLeaf = true; // grey leaf
+        return;
+      }
+      const sb2 = invs2[0];
+      node.splitBit = sb2;
+      const nf = new Set(fixed); nf.add(sb2);
+      makeGrey(states.filter(s => !((s>>sb2)&1)), dim-1, nf, id);
+      makeGrey(states.filter(s =>  ((s>>sb2)&1)), dim-1, nf, id);
+    }
+
+    makeGrey(h0, leaf.dim - 1, newFixed, leafId);
+    makeGrey(h1, leaf.dim - 1, newFixed, leafId);
   }
+
+  const rootId = buildExpected(Array.from({length: 1<<n}, (_,i)=>i), n, new Set(), null, 0);
+
+  // Build colorLeaves array as decomp result (for graph coloring)
+  const result = colorLeaves.map(lid => {
+    const nd = nodes[lid];
+    // Collect all actual leaves under this node (could have grey children)
+    function allLeafStates(nid) {
+      const node = nodes[nid];
+      if (!node.children.length) return node.states;
+      return node.children.flatMap(c => allLeafStates(c));
+    }
+    return { groupKey: nd.groupKey, states: nd.states, dim: nd.dim };
+  });
+  result.tree = nodes;
+  result.rootId = rootId;
+  result.n = n;
+  // invBits for compatibility (first split bits top-down)
+  result.invBits = [];
   return result;
+}
+
+function findDecomposition(T, n, vec) {
+  if (!vec || !vec.length) return null;
+  return buildDecompTree(vec, T, n);
 }
 
 // ─── Decomp Info ─────────────────────────────────────────────────────────────
@@ -696,37 +880,131 @@ function renderDecompInfo(decomp, n) {
   const nav    = document.getElementById('decomp-nav');
   if (nav) nav.style.display = 'none';
 
-  if (!decomp) {
+  if (!decomp || !decomp.tree) {
     el.innerHTML = '<div style="font-size:11px;color:var(--muted)">No decomposition</div>';
     legend.innerHTML = '';
     return;
   }
 
-  const dim = decomp[0].dim;
-  const count = decomp.length;
-  const dimLabel = ['—','segment','square','cube','tesseract'][dim] || ('d='+dim);
+  const treeNodes = decomp.tree;
+  const rootId    = decomp.rootId;
+  const nodeR     = 11;
+  const levelH    = 44;
+  const leafW     = 54;
 
-  // Decomp info: one row per group
-  let h = '<div style="font-size:12px;margin-bottom:6px">' + count + '× ' + dimLabel + ' (d=' + dim + ')</div>';
-  for (const group of decomp) {
-    const col = groupColor(group.groupKey);
-    h += '<div class="decomp-block"><div class="decomp-swatch" style="background:' + col + '"></div>'
-       + '<span style="font-size:11px;font-family:monospace">[' + group.states.join(',') + ']</span></div>';
+  // ── Compute tree layout (x,y) for each node ──────────────────────────────
+  // First pass: count leaves in each subtree
+  function countLeaves(id) {
+    const nd = treeNodes[id];
+    if (!nd.children.length) return 1;
+    return nd.children.reduce((s,c) => s + countLeaves(c), 0);
   }
-  el.innerHTML = h;
 
-  // Legend: one entry per unique color (= one per group, but deduplicated)
-  let lhtml = '';
-  const seenCols = new Set();
-  for (const group of decomp) {
-    const col = groupColor(group.groupKey);
-    if (!seenCols.has(col)) {
-      seenCols.add(col);
-      lhtml += '<div class="legend-row"><div class="legend-dot" style="background:' + col + ';border-radius:2px"></div>'
-             + dimLabel + ' (d=' + dim + ')</div>';
+  // Assign x positions by leaf index
+  let leafCounter = 0;
+  function assignX(id) {
+    const nd = treeNodes[id];
+    if (!nd.children.length) {
+      nd._leafIdx = leafCounter++;
+      nd._x = 10 + leafW / 2 + nd._leafIdx * leafW;
+      return;
+    }
+    nd.children.forEach(c => assignX(c));
+    const xs = nd.children.map(c => treeNodes[c]._x);
+    nd._x = (Math.min(...xs) + Math.max(...xs)) / 2;
+  }
+  assignX(rootId);
+
+  // Assign y by depth
+  function assignY(id, depth) {
+    treeNodes[id]._y = nodeR + depth * levelH;
+    treeNodes[id]._depth = depth;
+    treeNodes[id].children.forEach(c => assignY(c, depth + 1));
+  }
+  assignY(rootId, 0);
+
+  const totalLeaves = leafCounter;
+  const svgW = Math.max(200, totalLeaves * leafW + 20);
+  const maxDepth = Math.max(...Object.values(treeNodes).map(nd => nd._depth));
+  const svgH = (maxDepth + 1) * levelH + nodeR + 14;
+
+  let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + svgW + '" height="' + svgH + '">';
+
+  // ── Draw edges ─────────────────────────────────────────────────────────
+  function drawEdges(id) {
+    const nd = treeNodes[id];
+    nd.children.forEach((cid, ci) => {
+      const ch = treeNodes[cid];
+      const isGrey = ch.isGrey;
+      const stroke = isGrey ? '#334155' : '#4f8ef7';
+      const dash   = isGrey ? ' stroke-dasharray="3,3"' : '';
+      svg += '<line x1="' + nd._x + '" y1="' + nd._y
+           + '" x2="' + ch._x + '" y2="' + ch._y
+           + '" stroke="' + stroke + '" stroke-width="1.5"' + dash + '/>';
+      // Edge label (0 or 1)
+      const mx = (nd._x + ch._x) / 2 + (ci === 0 ? -8 : 5);
+      const my = (nd._y + ch._y) / 2 + 3;
+      svg += '<text x="' + mx + '" y="' + my + '" font-size="9"'
+           + ' fill="' + (isGrey ? '#475569' : '#64748b') + '" font-family="monospace">'
+           + ci + '</text>';
+      drawEdges(cid);
+    });
+  }
+  drawEdges(rootId);
+
+  // ── Draw nodes ────────────────────────────────────────────────────────
+  function drawNode(id) {
+    const nd = treeNodes[id];
+    const x = nd._x, y = nd._y;
+    const isGrey = nd.isGrey;
+    const topLeaf = !nd.children.length; // topological leaf (no children at all)
+
+    if (nd.isColorLeaf) {
+      // Colored boundary node — draw as colored box
+      const col = groupColor(nd.groupKey);
+      const bw = leafW - 8, bh = nodeR * 2;
+      svg += '<rect x="' + (x - bw/2) + '" y="' + (y - nodeR)
+           + '" width="' + bw + '" height="' + bh
+           + '" rx="4" fill="' + col + '33" stroke="' + col + '" stroke-width="1.5"/>';
+      const label = nd.states.length <= 4
+        ? nd.states.join(',')
+        : nd.states[0] + '..' + nd.states[nd.states.length-1];
+      svg += '<text x="' + x + '" y="' + (y + 4) + '" text-anchor="middle"'
+           + ' font-size="9" font-family="monospace" fill="' + col + '">' + label + '</text>';
+      // Draw grey children below if any (extensions)
+      nd.children.forEach(c => drawNode(c));
+    } else if (topLeaf && isGrey) {
+      // Grey topological leaf
+      const col = '#475569';
+      const bw = leafW - 8, bh = nodeR * 2;
+      svg += '<rect x="' + (x - bw/2) + '" y="' + (y - nodeR)
+           + '" width="' + bw + '" height="' + bh
+           + '" rx="4" fill="#1e253588" stroke="' + col + '" stroke-width="1.5"'
+           + ' stroke-dasharray="3,3"/>';
+      const label = nd.states.length <= 4
+        ? nd.states.join(',')
+        : nd.states[0] + '..' + nd.states[nd.states.length-1];
+      svg += '<text x="' + x + '" y="' + (y + 4) + '" text-anchor="middle"'
+           + ' font-size="9" font-family="monospace" fill="' + col + '">' + label + '</text>';
+    } else {
+      // Internal circle (colored or grey)
+      const stroke = isGrey ? '#475569' : '#4f8ef7';
+      const dash = isGrey ? ' stroke-dasharray="3,3"' : '';
+      svg += '<circle cx="' + x + '" cy="' + y + '" r="' + nodeR
+           + '" fill="#1e2535" stroke="' + stroke + '" stroke-width="1.5"' + dash + '/>';
+      svg += '<text x="' + x + '" y="' + (y - 1) + '" text-anchor="middle"'
+           + ' font-size="8" font-family="monospace" fill="' + (isGrey ? '#475569' : '#94a3b8') + '">x</text>';
+      svg += '<text x="' + (x + 4) + '" y="' + (y + 6) + '" text-anchor="middle"'
+           + ' font-size="8" font-family="monospace" fill="' + (isGrey ? '#475569' : '#e2e8f0') + '">'
+           + (nd.splitBit + 1) + '</text>';
+      nd.children.forEach(c => drawNode(c));
     }
   }
-  legend.innerHTML = lhtml;
+  drawNode(rootId);
+
+  svg += '</svg>';
+  el.innerHTML = svg;
+  legend.innerHTML = '';
 }
 
 // ─── Functions Display ────────────────────────────────────────────────────────
@@ -1369,6 +1647,79 @@ window.addEventListener('resize', () => {
     if (files.length) render();
   }, 100);
 });
+
+// ─── Resizable panels ────────────────────────────────────────────────────────
+(function initResizers() {
+  // Vertical resizer: left-col width vs right pane
+  const colResizer = document.getElementById('resizer-col');
+  const leftCol    = colResizer ? colResizer.previousElementSibling : null;
+  const rightPane  = colResizer ? colResizer.nextElementSibling : null;
+  const mainDiv    = colResizer ? colResizer.parentElement : null;
+
+  if (colResizer && leftCol && rightPane) {
+    let startX, startW;
+    colResizer.addEventListener('mousedown', e => {
+      startX = e.clientX;
+      startW = leftCol.getBoundingClientRect().width;
+      colResizer.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    });
+    window.addEventListener('mousemove', e => {
+      if (!colResizer.classList.contains('dragging')) return;
+      const totalW = mainDiv.getBoundingClientRect().width;
+      const newW = Math.max(180, Math.min(totalW * 0.7, startW + (e.clientX - startX)));
+      leftCol.style.width = newW + 'px';
+      leftCol.style.minWidth = '0';
+      drawHC(); // redraw after resize
+      const svg = document.getElementById('sbn-svg');
+      if (svg) {
+        const f = files[curFile];
+        if (f) { const row = f.rows[curSol]; renderSBN(extractWeights(row, f.dim), f.dim, row); }
+      }
+    });
+    window.addEventListener('mouseup', () => {
+      if (!colResizer.classList.contains('dragging')) return;
+      colResizer.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    });
+  }
+
+  // Horizontal resizer: SBN height vs legend height
+  const rowResizer = document.getElementById('resizer-row');
+  const sbnWrap    = rowResizer ? rowResizer.previousElementSibling : null;
+  const legendPane = rowResizer ? rowResizer.nextElementSibling : null;
+
+  if (rowResizer && sbnWrap && legendPane) {
+    let startY, startH;
+    rowResizer.addEventListener('mousedown', e => {
+      startY = e.clientY;
+      startH = sbnWrap.getBoundingClientRect().height;
+      rowResizer.classList.add('dragging');
+      document.body.style.cursor = 'row-resize';
+      document.body.style.userSelect = 'none';
+    });
+    window.addEventListener('mousemove', e => {
+      if (!rowResizer.classList.contains('dragging')) return;
+      const colH = sbnWrap.parentElement.getBoundingClientRect().height;
+      const newH = Math.max(80, Math.min(colH * 0.85, startH + (e.clientY - startY)));
+      sbnWrap.style.flex = 'none';
+      sbnWrap.style.height = newH + 'px';
+      const svg = document.getElementById('sbn-svg');
+      if (svg) {
+        const f = files[curFile];
+        if (f) { const row = f.rows[curSol]; renderSBN(extractWeights(row, f.dim), f.dim, row); }
+      }
+    });
+    window.addEventListener('mouseup', () => {
+      if (!rowResizer.classList.contains('dragging')) return;
+      rowResizer.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    });
+  }
+})();
 </script>
 </body>
 </html>

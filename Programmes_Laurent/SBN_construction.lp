@@ -1,4 +1,4 @@
-#const d = 3.
+#const d = 2.
 #const w_bound = d.
 
 node(0..d-1).

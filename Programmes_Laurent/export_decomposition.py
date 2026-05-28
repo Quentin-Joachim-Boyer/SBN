@@ -108,8 +108,12 @@ def rec_decomp_base2_vector_sum(d,s):
 if __name__ == "__main__":
     for d in range(MAX_DIMENSION,MAX_DIMENSION+1):
         complete_decomp_vects = rec_decomp_base2_vector_sum(d,2**d)
+        print(complete_decomp_vects)
         # print(complete_decomp_vects)
+        v_full = [1]+[0 for _ in range(d-1)]
+        v_full_name = ",".join(map(str, v_full))
+        solve_and_export(LP_FILES, v_full,N, output_csv=f"{d}d_<" + v_full_name + ">_output.csv")
         for v in complete_decomp_vects:
             # print(v)
             v_name = ",".join(map(str, v))
-            solve_and_export(LP_FILES, v,N, output_csv=f"inhibiteur_{d}d_<0," + v_name + ">_output.csv")
+            solve_and_export(LP_FILES, v,N, output_csv=f"{d}d_<0," + v_name + ">_output.csv")
