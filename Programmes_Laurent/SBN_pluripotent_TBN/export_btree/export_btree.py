@@ -65,7 +65,7 @@ def parse_transition_functions(line):
 def parse_weights(line):
     """Parse w(I,J,nil)=V atoms -> {(i,j): value}  (root context only)"""
     return {(int(m.group(1)), int(m.group(2))): int(m.group(3))
-            for m in re.finditer(r'w\((\d+),(\d+),nil\)=(-?\d+)', line)}
+            for m in re.finditer(r'w\((\d+),(\d+)\)=(-?\d+)', line)}
 
 
 # ─── Solver ───────────────────────────────────────────────────────────────────
